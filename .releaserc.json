@@ -1,0 +1,23 @@
+{
+  "branches": ["main"],
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    [
+      "@semantic-release/release-notes-generator",
+      {
+        "writerOpts": {
+          "footerPartial": "## Docker Images\n\n- **GitHub Container Registry**: `ghcr.io/pazter1101/patchnotes:{{version}}`\n- **Docker Hub**: `pazter1101/patchnotes:{{version}}`\n\n### Usage\n```bash\ndocker run --rm \\\n  -e LLM_API_KEY=your-api-key \\\n  -v ./config.yml:/config.yml \\\n  -v ./prompts:/prompts \\\n  -v ./output:/output \\\n  ghcr.io/pazter1101/patchnotes:{{version}}\n```\n\n"
+        }
+      }
+    ],
+    "@semantic-release/changelog",
+    "@semantic-release/github",
+    [
+      "@semantic-release/git",
+      {
+        "assets": ["CHANGELOG.md"],
+        "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+      }
+    ]
+  ]
+}

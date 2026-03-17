@@ -1,0 +1,61 @@
+# Репозитории для анализа
+repos:
+  - url: https://github.com/your-org/your-repo.git
+    name: Название репозитория
+    branch: main
+  # - url: https://github.com/your-org/another-repo.git
+  #   name: Ещё один репозиторий
+  #   branch: develop
+
+# Период анализа в днях
+period_days: 7
+
+# Файлы и директории которые игнорируются полностью
+noise_patterns:
+  - "*.lock"
+  - "package-lock.json"
+  - "yarn.lock"
+  - "pubspec.lock"
+  - "poetry.lock"
+  - "Pipfile.lock"
+  - "*.g.dart"
+  - "*.freezed.dart"
+  - "*.pb.dart"
+  - "migrations/"
+  - "__pycache__/"
+  - "*.pyc"
+  - "dist/"
+  - "build/"
+  - ".dart_tool/"
+  - "node_modules/"
+
+# Файлы с высоким приоритетом — попадают в diff первыми
+priority_patterns:
+  - "app/**"
+  - "lib/**"
+  - "src/**"
+
+# Файлы со средним приоритетом
+secondary_patterns:
+  - "tests/**"
+  - "test/**"
+  - "*.md"
+  - "*.yml"
+  - "*.yaml"
+
+# Файл считается большим если суммарно изменено больше N строк — суммаризируется отдельно
+large_file_threshold: 300
+
+# Бюджет символов на суммарный diff маленьких файлов в одном запросе (~6000 токенов)
+max_diff_chars: 24000
+
+# Настройки LLM моделей
+# Актуальный список бесплатных моделей: https://openrouter.ai/models?supported_parameters=free
+llm:
+  analysis_model: google/gemini-3.1-flash-lite-preview   # 1M контекст, отлично понимает код
+  post_model: nvidia/nemotron-3-super-120b-a12b:free      # 120B параметров, качественный текст
+
+# Настройки поста
+post:
+  site_name: My Project
+  language: en   # ru, en, de, ...
