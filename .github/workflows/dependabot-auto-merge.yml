@@ -20,8 +20,22 @@ jobs:
       with:
         github-token: "${{ secrets.GITHUB_TOKEN }}"
 
-    - name: Auto-merge patch and minor updates
-      if: steps.metadata.outputs.update-type == 'version-update:semver-patch' || steps.metadata.outputs.update-type == 'version-update:semver-minor'
+    - name: Auto-merge patch and minor updates (non-docker)
+      if: |
+        !contains(steps.metadata.outputs.dependency-names, 'python') &&
+        steps.metadata.outputs.package-ecosystem != 'docker' &&
+        (steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
+         steps.metadata.outputs.update-type == 'version-update:semver-minor')
+      run: |
+        gh pr merge --auto --squash "$PR_URL"
+      env:
+        PR_URL: ${{ github.event.pull_request.html_url }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Auto-merge docker patch updates only
+      if: |
+        steps.metadata.outputs.package-ecosystem == 'docker' &&
+        steps.metadata.outputs.update-type == 'version-update:semver-patch'
       run: |
         gh pr merge --auto --squash "$PR_URL"
       env:
