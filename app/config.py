@@ -9,6 +9,9 @@ class RepoConfig(BaseModel):
     name: str = ""
     branch: str = "main"
     token: str = ""  # перекрывает глобальный GIT_TOKEN
+    diff_mode: str = "period"  # "period" | "tag"
+    # для diff_mode=tag: глубина поиска базового тега/коммита (в периодах)
+    tag_lookback_periods: int = 1
 
     @model_validator(mode="before")
     @classmethod

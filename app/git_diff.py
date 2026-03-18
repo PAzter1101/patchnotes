@@ -1,6 +1,7 @@
 import shutil
 import subprocess
 import tempfile
+import time
 from dataclasses import dataclass, field
 from fnmatch import fnmatch
 from pathlib import Path
@@ -130,28 +131,113 @@ def _parse_file_change(
     )
 
 
+def _tag_age_days(tag: str, cwd: str) -> float | None:
+    ts = _run_git(["log", "-1", "--format=%ct", tag], cwd)
+    if not ts:
+        return None
+    return (time.time() - float(ts)) / 86400
+
+
+def _resolve_diff_base_by_tags(
+    repo: RepoConfig, config: AppConfig, cwd: str
+) -> str | None:
+    """Определяет diff_base по тегам с каскадным поиском базы.
+
+    TARGET: последний тег в текущем периоде (иначе None — пропускаем репо).
+    BASE (каскад):
+      1. Последний тег в прошлом периоде [period, 2*period]
+      2. Последний тег в расширенном окне [2*period, max_lookback]
+      3. Самый старый коммит в окне [period, max_lookback]
+      4. Последний коммит до начала окна (старше max_lookback)
+    """
+    period = config.period_days
+    max_lookback = (1 + repo.tag_lookback_periods) * period
+
+    all_tags = _run_git(
+        ["tag", "--sort=-creatordate", "--merged", "HEAD"],
+        cwd,
+    ).splitlines()
+
+    tags_with_age = [
+        (tag, age) for tag in all_tags if (age := _tag_age_days(tag, cwd)) is not None
+    ]
+
+    # TARGET
+    current_tags = [t for t, a in tags_with_age if a <= period]
+    if not current_tags:
+        return None
+    target = current_tags[0]
+
+    # BASE шаг 1: последний тег в прошлом периоде
+    prev_tags = [t for t, a in tags_with_age if period < a <= 2 * period]
+    if prev_tags:
+        return f"{prev_tags[0]}..{target}"
+
+    # BASE шаг 2: последний тег в расширенном окне
+    extended_tags = [t for t, a in tags_with_age if 2 * period < a <= max_lookback]
+    if extended_tags:
+        return f"{extended_tags[0]}..{target}"
+
+    # BASE шаг 3: самый старый коммит в окне [period, max_lookback]
+    oldest_in_window = _run_git(
+        [
+            "log",
+            f"--before={period} days ago",
+            f"--after={max_lookback} days ago",
+            "--format=%H",
+            "--no-merges",
+            "--reverse",
+        ],
+        cwd,
+    )
+    if oldest_in_window:
+        oldest = oldest_in_window.splitlines()[0]
+        parent = _run_git(["rev-parse", "--verify", f"{oldest}^"], cwd)
+        base = parent if parent else oldest
+        return f"{base}..{target}"
+
+    # BASE шаг 4: последний коммит до начала окна
+    last_before = _run_git(
+        ["log", f"--before={max_lookback} days ago", "--format=%H", "-1"],
+        cwd,
+    )
+    if last_before:
+        return f"{last_before.strip()}..{target}"
+
+    return None
+
+
 def collect_repo_diff(repo: RepoConfig, config: AppConfig) -> RepoDiff:
     tmpdir = tempfile.mkdtemp(prefix="patchnotes_")
     try:
         token = repo.token or config.git_token
         _clone_repo(repo, token, tmpdir)
 
-        since_commits = _run_git(
-            [
-                "log",
-                f"--since={config.period_days} days ago",
-                "--format=%H",
-                "--no-merges",
-            ],
-            tmpdir,
-        )
+        if repo.diff_mode == "tag":
+            diff_base = _resolve_diff_base_by_tags(repo, config, tmpdir)
+            if diff_base is None:
+                return RepoDiff(
+                    name=repo.name, url=repo.url, stat="", has_changes=False
+                )
+        else:
+            since_commits = _run_git(
+                [
+                    "log",
+                    f"--since={config.period_days} days ago",
+                    "--format=%H",
+                    "--no-merges",
+                ],
+                tmpdir,
+            )
 
-        if not since_commits:
-            return RepoDiff(name=repo.name, url=repo.url, stat="", has_changes=False)
+            if not since_commits:
+                return RepoDiff(
+                    name=repo.name, url=repo.url, stat="", has_changes=False
+                )
 
-        oldest = since_commits.splitlines()[-1]
-        parent = _run_git(["rev-parse", "--verify", f"{oldest}^"], tmpdir)
-        diff_base = f"{parent}..HEAD" if parent else f"{oldest}..HEAD"
+            oldest = since_commits.splitlines()[-1]
+            parent = _run_git(["rev-parse", "--verify", f"{oldest}^"], tmpdir)
+            diff_base = f"{parent}..HEAD" if parent else f"{oldest}..HEAD"
 
         stat = _run_git(["diff", "--stat", diff_base], tmpdir)
         if not stat:

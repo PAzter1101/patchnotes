@@ -8,10 +8,13 @@ repos:
     name: Название репозитория
     branch: main
     token: ghp-xxx   # опционально, перекрывает глобальный GIT_TOKEN
+    diff_mode: tag             # "tag" — диф по тегам, "period" — по дням (по умолчанию)
+    tag_lookback_periods: 3   # для diff_mode=tag: искать базу до N доп. периодов назад
   # - url: https://gitlab.com/your-org/another-repo.git
   #   name: Ещё один репозиторий
   #   branch: develop
   #   token: glpat-yyy
+  #   diff_mode: period
 
 # Часовой пояс для формирования даты в имени файла и front matter поста
 # Список значений: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones

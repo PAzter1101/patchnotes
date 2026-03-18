@@ -2,14 +2,14 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, develop ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, develop ]
 
 jobs:
   semantic-release:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, 'Merge branch')
+    if: github.ref == 'refs/heads/main'
     outputs:
       version: ${{ steps.release.outputs.version }}
       released: ${{ steps.release.outputs.released }}
@@ -62,14 +62,14 @@ jobs:
       uses: docker/setup-buildx-action@v3
 
     - name: Log in to GitHub Container Registry
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Log in to Docker Hub
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         registry: docker.io
         username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -96,3 +96,39 @@ jobs:
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+
+  sync-develop:
+    runs-on: ubuntu-latest
+    needs: [semantic-release]
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+        ref: main
+
+    - name: Create sync PR
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        BRANCH_NAME="sync-main-to-develop-$(date +%s)"
+        git checkout -b $BRANCH_NAME
+        git push origin $BRANCH_NAME
+        PR_URL=$(gh pr create \
+          --title "chore: sync release changes from main to develop" \
+          --body "Auto-sync after release. This PR merges the latest changes from main branch to develop." \
+          --base develop \
+          --head $BRANCH_NAME)
+        echo "PR_URL=$PR_URL" >> $GITHUB_ENV
+
+    - name: Approve and enable auto-merge
+      env:
+        GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+      run: |
+        gh pr review --approve "$PR_URL"
+        gh pr merge --auto --merge "$PR_URL"

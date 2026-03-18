@@ -5,7 +5,7 @@
 ## Как работает
 
 ```
-git репозитории → net diff → фильтрация шума → анализ LLM (по репозиторию)
+git репозитории → git diff → фильтрация шума → анализ LLM (по репозиторию)
   → синтез фич → генерация поста → ревью поста → MkDocs .md
 ```
 
@@ -16,7 +16,7 @@ git репозитории → net diff → фильтрация шума → а
 5. Синтезирует связанные изменения из разных репозиториев в логические цепочки
 6. Генерирует пост в нужном стиле — задаётся через промпт и настройки в конфиге
 7. Ревьювер проверяет пост и при необходимости отправляет на доработку (до `max_review_iterations` раз)
-8. Записывает `.md` файл готовый для блога [MkDocs Material](https://squidfunk.github.io/mkdocs-material/)
+8. Записывает `.md` файл, готовый для блога [MkDocs Material](https://squidfunk.github.io/mkdocs-material/)
 
 ## Структура
 
@@ -45,7 +45,6 @@ patchnotes/
 
 ```bash
 cp config.example.yml config.yml
-# Укажите repos, llm_api_key, llm_base_url, llm.analysis_model, llm.post_model
 ```
 
 2. Запуск локально (Python):
@@ -62,40 +61,74 @@ docker run --rm \
   -v ./config.yml:/config.yml:ro \
   -v ./prompts:/prompts:ro \
   -v ./output:/output \
-  ghcr.io/your-org/patchnotes
+  ghcr.io/pazter1101/patchnotes
 ```
 
-Результат появится в директории `output/`.
+Результат появится в `output/{дата}/`.
 
 ## Конфигурация
 
 ### config.yml
 
-Все настройки — в одном файле. Смотрите [`config.example.yml`](config.example.yml).
+Все настройки — в одном файле. Полный пример: [`config.example.yml`](config.example.yml).
 
 ```yaml
-llm_api_key: sk-or-v1-...           # API ключ LLM провайдера
-llm_base_url: https://openrouter.ai/api/v1  # OpenAI-совместимый эндпоинт
+llm_api_key: sk-or-v1-...
+llm_base_url: https://openrouter.ai/api/v1
 
-period_days: 7                      # период анализа в днях
-max_review_iterations: 3            # сколько раз пробовать переписать пост
+timezone: Europe/Moscow         # часовой пояс для даты в имени файла и front matter
+period_days: 7                  # период анализа в днях
+max_review_iterations: 3        # сколько раз пробовать переписать пост
 
 repos:
   - url: https://github.com/your-org/repo.git
     name: backend
     branch: main
-    token: ghp-xxx                  # токен для приватного репозитория
+    token: ghp-xxx              # токен для приватного репозитория
+    diff_mode: period           # "period" — по дням (по умолчанию) | "tag" — по тегам
+
+  - url: https://github.com/your-org/mobile.git
+    name: mobile
+    branch: main
+    diff_mode: tag              # анализировать изменения между тегами
+    tag_lookback_periods: 3     # глубина поиска базового тега (в периодах)
 
 llm:
-  analysis_model: deepseek/deepseek-chat-v3-0324:free
-  post_model: meta-llama/llama-4-maverick:free
+  analysis:
+    model: nvidia/nemotron-3-super-120b-a12b:free
+    temperature: 0.2
+    max_tokens: 4000
+  post:
+    model: arcee-ai/trinity-large-preview:free
+    temperature: 0.7
+    max_tokens: 1500
+  review:
+    model: arcee-ai/trinity-large-preview:free
+    temperature: 0.2
+    max_tokens: 500
 
 post:
   site_name: My Project
-  language: ru                      # язык генерируемого поста
+  language: ru
 ```
 
 Через `llm_base_url` можно подключить любой OpenAI-совместимый провайдер: [OpenRouter](https://openrouter.ai), [Ollama](https://ollama.com), Together AI, Groq и другие.
+
+### Режимы diff
+
+| `diff_mode` | Поведение |
+|---|---|
+| `period` | Диф за последние `period_days` дней. Подходит для репозиториев без тегов. |
+| `tag` | Диф между тегами. Target — последний тег в текущем периоде (нет тега = репозиторий пропускается). Base определяется каскадно (см. ниже). |
+
+**Каскад поиска базового тега** (`diff_mode: tag`):
+
+1. Последний тег в прошлом периоде `[period, 2×period]`
+2. Последний тег в расширенном окне `[2×period, (1+lookback)×period]`
+3. Самый старый коммит в окне `[period, (1+lookback)×period]`
+4. Последний коммит до начала окна
+
+`tag_lookback_periods` (по умолчанию `1`) управляет глубиной поиска. Увеличьте значение, если между релизами бывают долгие периоды без тегов.
 
 ### Переменные окружения
 
@@ -107,13 +140,11 @@ Env переменные перекрывают значения из `config.ym
 | `LLM_BASE_URL` | Base URL OpenAI-совместимого API |
 | `GIT_TOKEN` | Глобальный токен для репозиториев (если не указан per-repo) |
 | `CONFIG_PATH` | Путь к файлу конфигурации (дефолт: `/config.yml`) |
-| `OUTPUT_DIR` | Куда записывать `.md` файл (дефолт: `/output`) |
+| `OUTPUT_DIR` | Куда записывать результаты (дефолт: `/output`) |
 | `PROMPTS_DIR` | Путь к директории с промптами (дефолт: `/prompts`) |
 | `LOG_LEVEL` | Уровень логирования: `DEBUG`, `INFO`, `WARNING` (дефолт: `INFO`) |
 
 ### Токены для приватных репозиториев
-
-Каждый репозиторий может иметь свой токен:
 
 ```yaml
 repos:
@@ -138,22 +169,22 @@ repos:
 
 | Файл | Переменные |
 |---|---|
-| `analyze_repo.txt` | `{period_days}`, `{language}` |
-| `summarize_file.txt` | `{language}` |
+| `analyze_repo.txt` | `{period_days}` |
+| `summarize_file.txt` | — |
 | `synthesize.txt` | `{period_days}`, `{language}` |
-| `generate_post.txt` | `{site_name}`, `{period_days}`, `{language}` |
+| `generate_post.txt` | `{site_name}`, `{period_days}`, `{language}`, `{feedback_section}` |
 | `review_post.txt` | `{language}` |
 
 ## Результат
 
-Каждый запуск создаёт несколько файлов в `output/`:
+Каждый запуск создаёт поддиректорию `output/{дата}/`:
 
 | Файл | Содержимое |
 |---|---|
-| `2026-03-17.md` | Готовый пост для MkDocs |
-| `2026-03-17_synthesis.txt` | Синтезированные фич-цепочки |
-| `2026-03-17_post_raw.txt` | Сырой ответ LLM до ревью |
-| `2026-03-17_{repo}_analysis.txt` | Технический анализ каждого репозитория |
+| `2026-03-18.md` | Готовый пост для MkDocs |
+| `2_synthesis.txt` | Синтезированные фич-цепочки |
+| `3_post_raw.txt` | Сырой ответ LLM до парсинга |
+| `1_{repo}_analysis.txt` | Технический анализ каждого репозитория |
 
 Формат `.md` совместим с [MkDocs Material Blog](https://squidfunk.github.io/mkdocs-material/plugins/blog/).
 
@@ -174,8 +205,8 @@ pip install mkdocs-material mkdocs-rss-plugin
 
 По умолчанию используются бесплатные модели через [OpenRouter](https://openrouter.ai):
 
-- **Анализ / синтез**: `deepseek/deepseek-chat-v3-0324:free`
-- **Пост / ревью**: `meta-llama/llama-4-maverick:free`
+- **Анализ / синтез**: `nvidia/nemotron-3-super-120b-a12b:free`
+- **Пост / ревью**: `arcee-ai/trinity-large-preview:free`
 
 Актуальный список бесплатных моделей: [openrouter.ai/models](https://openrouter.ai/models?supported_parameters=free)
 
