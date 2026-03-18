@@ -1,14 +1,27 @@
+# Ключ API LLM провайдера (OpenRouter, Ollama, Together AI, Groq и др.)
+llm_api_key: sk-or-v1-...
+llm_base_url: https://openrouter.ai/api/v1
+
 # Репозитории для анализа
 repos:
   - url: https://github.com/your-org/your-repo.git
     name: Название репозитория
     branch: main
-  # - url: https://github.com/your-org/another-repo.git
+    token: ghp-xxx   # опционально, перекрывает глобальный GIT_TOKEN
+  # - url: https://gitlab.com/your-org/another-repo.git
   #   name: Ещё один репозиторий
   #   branch: develop
+  #   token: glpat-yyy
+
+# Часовой пояс для формирования даты в имени файла и front matter поста
+# Список значений: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+timezone: UTC
 
 # Период анализа в днях
 period_days: 7
+
+# Сколько раз пробовать переписать пост если ревьювер отклоняет
+max_review_iterations: 3
 
 # Файлы и директории которые игнорируются полностью
 noise_patterns:
@@ -46,14 +59,25 @@ secondary_patterns:
 # Файл считается большим если суммарно изменено больше N строк — суммаризируется отдельно
 large_file_threshold: 300
 
-# Бюджет символов на суммарный diff маленьких файлов в одном запросе (~6000 токенов)
-max_diff_chars: 24000
+# Бюджет символов на суммарный diff маленьких файлов в одном запросе
+# Большинство современных моделей имеют контекст 128K+ токенов — можно ставить 80000+
+max_diff_chars: 80000
 
 # Настройки LLM моделей
 # Актуальный список бесплатных моделей: https://openrouter.ai/models?supported_parameters=free
 llm:
-  analysis_model: google/gemini-3.1-flash-lite-preview   # 1M контекст, отлично понимает код
-  post_model: nvidia/nemotron-3-super-120b-a12b:free      # 120B параметров, качественный текст
+  analysis:                                        # анализ репозиториев и синтез фич
+    model: nvidia/nemotron-3-super-120b-a12b:free
+    temperature: 0.2
+    max_tokens: 4000
+  post:                                            # генерация поста
+    model: arcee-ai/trinity-large-preview:free
+    temperature: 0.7
+    max_tokens: 1500
+  review:                                          # ревью и gate-проверка
+    model: arcee-ai/trinity-large-preview:free
+    temperature: 0.2
+    max_tokens: 500
 
 # Настройки поста
 post:

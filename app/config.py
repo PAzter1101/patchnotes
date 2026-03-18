@@ -1,87 +1,99 @@
 import os
-from dataclasses import dataclass, field
 
 import yaml
+from pydantic import BaseModel, Field, model_validator
 
 
-@dataclass
-class RepoConfig:
+class RepoConfig(BaseModel):
     url: str
-    name: str
+    name: str = ""
     branch: str = "main"
+    token: str = ""  # перекрывает глобальный GIT_TOKEN
+
+    @model_validator(mode="before")
+    @classmethod
+    def set_name_from_url(cls, values: dict) -> dict:
+        if not values.get("name"):
+            url = values.get("url", "")
+            values["name"] = url.rstrip("/").split("/")[-1].removesuffix(".git")
+        return values
 
 
-@dataclass
-class LLMConfig:
-    analysis_model: str = "deepseek/deepseek-chat-v3-0324:free"
-    post_model: str = "meta-llama/llama-4-maverick:free"
+class ModelConfig(BaseModel):
+    model: str
+    temperature: float = 0.3
+    max_tokens: int = 2000
 
 
-@dataclass
-class PostConfig:
+class LLMConfig(BaseModel):
+    # Анализ репозиториев и синтез: точность важнее креативности
+    analysis: ModelConfig = Field(
+        default_factory=lambda: ModelConfig(
+            model="nvidia/nemotron-3-super-120b-a12b:free",
+            temperature=0.2,
+            max_tokens=4000,
+        )
+    )
+    # Генерация поста: нужен живой текст
+    post: ModelConfig = Field(
+        default_factory=lambda: ModelConfig(
+            model="arcee-ai/trinity-large-preview:free",
+            temperature=0.7,
+            max_tokens=1500,
+        )
+    )
+    # Ревью: строгая проверка, минимальная вариативность
+    review: ModelConfig = Field(
+        default_factory=lambda: ModelConfig(
+            model="arcee-ai/trinity-large-preview:free",
+            temperature=0.2,
+            max_tokens=500,
+        )
+    )
+
+
+class PostConfig(BaseModel):
     site_name: str = "My Project"
     language: str = "en"
 
 
-@dataclass
-class AppConfig:
+class AppConfig(BaseModel):
     repos: list[RepoConfig]
-    noise_patterns: list[str] = field(default_factory=list)
-    priority_patterns: list[str] = field(default_factory=list)
-    secondary_patterns: list[str] = field(default_factory=list)
+    noise_patterns: list[str] = Field(default_factory=list)
+    priority_patterns: list[str] = Field(default_factory=list)
+    secondary_patterns: list[str] = Field(default_factory=list)
     large_file_threshold: int = 300
     max_diff_chars: int = 24_000
     period_days: int = 7
-    llm: LLMConfig = field(default_factory=LLMConfig)
-    post: PostConfig = field(default_factory=PostConfig)
+    max_review_iterations: int = 3
+    llm_retries: int = 3
+    llm: LLMConfig = Field(default_factory=LLMConfig)
+    post: PostConfig = Field(default_factory=PostConfig)
     llm_api_key: str = ""
     llm_base_url: str = "https://openrouter.ai/api/v1"
     git_token: str = ""
     output_dir: str = "/output"
     prompts_dir: str = "/prompts"
+    timezone: str = "UTC"
 
 
 def load_config() -> AppConfig:
     config_path = os.environ.get("CONFIG_PATH", "/config.yml")
 
     with open(config_path) as f:
-        data = yaml.safe_load(f)
+        data: dict = yaml.safe_load(f) or {}
 
-    repos = [
-        RepoConfig(
-            url=r["url"],
-            name=r.get(
-                "name", r["url"].rstrip("/").split("/")[-1].removesuffix(".git")
-            ),
-            branch=r.get("branch", "main"),
-        )
-        for r in data.get("repos", [])
-    ]
+    # Переменные окружения перекрывают значения из конфига
+    env_map = {
+        "LLM_API_KEY": "llm_api_key",
+        "LLM_BASE_URL": "llm_base_url",
+        "GIT_TOKEN": "git_token",
+        "OUTPUT_DIR": "output_dir",
+        "PROMPTS_DIR": "prompts_dir",
+    }
+    for env_key, config_key in env_map.items():
+        val = os.environ.get(env_key)
+        if val:
+            data[config_key] = val
 
-    llm_data = data.get("llm", {})
-    post_data = data.get("post", {})
-
-    return AppConfig(
-        repos=repos,
-        noise_patterns=data.get("noise_patterns", []),
-        priority_patterns=data.get("priority_patterns", []),
-        secondary_patterns=data.get("secondary_patterns", []),
-        large_file_threshold=data.get("large_file_threshold", 300),
-        max_diff_chars=data.get("max_diff_chars", 24_000),
-        period_days=data.get("period_days", 7),
-        llm=LLMConfig(
-            analysis_model=llm_data.get(
-                "analysis_model", "deepseek/deepseek-chat-v3-0324:free"
-            ),
-            post_model=llm_data.get("post_model", "meta-llama/llama-4-maverick:free"),
-        ),
-        post=PostConfig(
-            site_name=post_data.get("site_name", "My Project"),
-            language=post_data.get("language", "en"),
-        ),
-        llm_api_key=os.environ.get("LLM_API_KEY", ""),
-        llm_base_url=os.environ.get("LLM_BASE_URL", "https://openrouter.ai/api/v1"),
-        git_token=os.environ.get("GIT_TOKEN", ""),
-        output_dir=os.environ.get("OUTPUT_DIR", "/output"),
-        prompts_dir=os.environ.get("PROMPTS_DIR", "/prompts"),
-    )
+    return AppConfig.model_validate(data)

@@ -26,6 +26,7 @@ class RepoDiff:
     name: str
     url: str
     stat: str
+    commit_log: str = ""
     files: list[FileChange] = field(default_factory=list)
     has_changes: bool = False
 
@@ -64,15 +65,31 @@ def _run_git(args: list[str], cwd: str) -> str:
 
 def _clone_repo(repo: RepoConfig, token: str, target_dir: str) -> None:
     url = repo.url
-    if token and ("github.com" in url or "gitlab.com" in url):
+    if token:
         proto, rest = url.split("://", 1)
-        url = f"{proto}://{token}@{rest}"
+        if "gitlab.com" in url:
+            # GitLab PAT требует формат oauth2:TOKEN
+            url = f"{proto}://oauth2:{token}@{rest}"
+        else:
+            # GitHub и остальные
+            url = f"{proto}://{token}@{rest}"
 
-    subprocess.run(
-        ["git", "clone", "--depth", "100", "--branch", repo.branch, url, target_dir],
-        check=True,
+    result = subprocess.run(
+        [
+            "git",
+            "clone",
+            "--depth",
+            "100",
+            "--branch",
+            repo.branch,
+            url,
+            target_dir,
+        ],
         capture_output=True,
+        text=True,
     )
+    if result.returncode != 0:
+        raise RuntimeError(f"git clone failed for {repo.name}:\n{result.stderr}")
 
 
 def _parse_file_change(
@@ -116,7 +133,8 @@ def _parse_file_change(
 def collect_repo_diff(repo: RepoConfig, config: AppConfig) -> RepoDiff:
     tmpdir = tempfile.mkdtemp(prefix="patchnotes_")
     try:
-        _clone_repo(repo, config.git_token, tmpdir)
+        token = repo.token or config.git_token
+        _clone_repo(repo, token, tmpdir)
 
         since_commits = _run_git(
             [
@@ -139,6 +157,16 @@ def collect_repo_diff(repo: RepoConfig, config: AppConfig) -> RepoDiff:
         if not stat:
             return RepoDiff(name=repo.name, url=repo.url, stat="", has_changes=False)
 
+        commit_log = _run_git(
+            [
+                "log",
+                diff_base,
+                "--no-merges",
+                "--format=%h %s",
+            ],
+            tmpdir,
+        )
+
         numstat = _run_git(["diff", "--numstat", diff_base], tmpdir)
         files: list[FileChange] = []
         for line in numstat.splitlines():
@@ -147,7 +175,13 @@ def collect_repo_diff(repo: RepoConfig, config: AppConfig) -> RepoDiff:
                 files.append(change)
 
         if not files:
-            return RepoDiff(name=repo.name, url=repo.url, stat=stat, has_changes=True)
+            return RepoDiff(
+                name=repo.name,
+                url=repo.url,
+                stat=stat,
+                commit_log=commit_log,
+                has_changes=True,
+            )
 
         files.sort(key=lambda f: (f.priority, -(f.insertions + f.deletions)))
 
@@ -155,6 +189,7 @@ def collect_repo_diff(repo: RepoConfig, config: AppConfig) -> RepoDiff:
             name=repo.name,
             url=repo.url,
             stat=stat,
+            commit_log=commit_log,
             files=files,
             has_changes=True,
         )
