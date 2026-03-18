@@ -1,0 +1,10 @@
+.git/
+.github/
+output/
+config.yml
+*.md
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+prompts/
