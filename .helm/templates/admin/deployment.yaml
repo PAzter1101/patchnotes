@@ -17,6 +17,23 @@ spec:
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/component: admin
     spec:
+      securityContext:
+        fsGroup: 1000
+      initContainers:
+        - name: init-data
+          image: "{{ .Values.admin.image.repository }}:{{ .Values.admin.image.tag }}"
+          imagePullPolicy: {{ .Values.admin.image.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p /data/output /data/logs /data/posts
+              test -f /data/mkdocs.yml || cp /app/mkdocs-default.yml /data/mkdocs.yml
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: data
+              mountPath: /data
       containers:
         - name: admin
           image: "{{ .Values.admin.image.repository }}:{{ .Values.admin.image.tag }}"

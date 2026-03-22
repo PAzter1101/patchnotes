@@ -17,6 +17,19 @@ spec:
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/component: mkdocs
     spec:
+      initContainers:
+        - name: init-data
+          image: "{{ .Values.mkdocs.image.repository }}:{{ .Values.mkdocs.image.tag }}"
+          imagePullPolicy: {{ .Values.mkdocs.image.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - |
+              test -f /data/mkdocs.yml || cp /docs/mkdocs.yml /data/mkdocs.yml
+              test -d /data/posts || mkdir -p /data/posts
+          volumeMounts:
+            - name: data
+              mountPath: /data
       containers:
         - name: mkdocs
           image: "{{ .Values.mkdocs.image.repository }}:{{ .Values.mkdocs.image.tag }}"
