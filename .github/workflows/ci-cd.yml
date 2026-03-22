@@ -128,8 +128,9 @@ jobs:
 
     - name: Package and push
       run: |
+        OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
         helm package .helm/
-        helm push patchnotes-*.tgz oci://ghcr.io/${{ github.repository_owner }}/charts
+        helm push patchnotes-*.tgz oci://ghcr.io/${OWNER}/charts
 
   sync-develop:
     runs-on: ubuntu-latest
@@ -160,9 +161,8 @@ jobs:
           --head $BRANCH_NAME)
         echo "PR_URL=$PR_URL" >> $GITHUB_ENV
 
-    - name: Approve and enable auto-merge
+    - name: Enable auto-merge
       env:
         GH_TOKEN: ${{ secrets.PAT_TOKEN }}
       run: |
-        gh pr review --approve "$PR_URL"
         gh pr merge --auto --merge "$PR_URL"
