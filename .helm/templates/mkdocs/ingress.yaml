@@ -1,0 +1,32 @@
+{{- if .Values.mkdocs.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "patchnotes.fullname" . }}-mkdocs
+  labels:
+    {{- include "patchnotes.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mkdocs
+  annotations:
+    {{- if .Values.mkdocs.ingress.tls }}
+    cert-manager.io/cluster-issuer: {{ .Values.mkdocs.ingress.clusterIssuer }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.mkdocs.ingress.ingressClassName }}
+  {{- if .Values.mkdocs.ingress.tls }}
+  tls:
+    - hosts:
+        - {{ .Values.mkdocs.ingress.host }}
+      secretName: {{ include "patchnotes.fullname" . }}-mkdocs-tls
+  {{- end }}
+  rules:
+    - host: {{ .Values.mkdocs.ingress.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "patchnotes.fullname" . }}-mkdocs
+                port:
+                  number: 8000
+{{- end }}

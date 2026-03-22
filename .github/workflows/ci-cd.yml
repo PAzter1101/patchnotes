@@ -54,6 +54,15 @@ jobs:
     permissions:
       contents: read
       packages: write
+    strategy:
+      matrix:
+        include:
+          - image: patchnotes-admin
+            dockerfile: admin/Dockerfile
+            context: .
+          - image: patchnotes-mkdocs
+            dockerfile: mkdocs/Dockerfile
+            context: mkdocs
     steps:
     - name: Checkout
       uses: actions/checkout@v6
@@ -80,8 +89,8 @@ jobs:
       uses: docker/metadata-action@v5
       with:
         images: |
-          ghcr.io/${{ github.repository }}
-          ${{ secrets.DOCKERHUB_USERNAME }}/patchnotes
+          ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
+          ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image }}
         tags: |
           type=raw,value=latest
           type=raw,value=${{ needs.semantic-release.outputs.version }}
@@ -89,13 +98,38 @@ jobs:
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
-        context: .
+        context: ${{ matrix.context }}
+        file: ${{ matrix.dockerfile }}
         platforms: linux/amd64,linux/arm64
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+
+  helm-push:
+    runs-on: ubuntu-latest
+    needs: [semantic-release]
+    if: github.ref == 'refs/heads/main' && needs.semantic-release.outputs.released == 'true'
+    permissions:
+      packages: write
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+
+    - name: Log in to GHCR
+      run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+
+    - name: Update chart version
+      run: |
+        VERSION=${{ needs.semantic-release.outputs.version }}
+        sed -i "s/^version:.*/version: ${VERSION}/" .helm/Chart.yaml
+        sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" .helm/Chart.yaml
+
+    - name: Package and push
+      run: |
+        helm package .helm/
+        helm push patchnotes-*.tgz oci://ghcr.io/${{ github.repository_owner }}/charts
 
   sync-develop:
     runs-on: ubuntu-latest
