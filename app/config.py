@@ -12,6 +12,10 @@ class RepoConfig(BaseModel):
     diff_mode: str = "period"  # "period" | "tag"
     # для diff_mode=tag: глубина поиска базового тега/коммита (в периодах)
     tag_lookback_periods: int = 1
+    # дополнительные паттерны, объединяются с глобальными
+    noise_patterns: list[str] = Field(default_factory=list)
+    priority_patterns: list[str] = Field(default_factory=list)
+    secondary_patterns: list[str] = Field(default_factory=list)
 
     @model_validator(mode="before")
     @classmethod

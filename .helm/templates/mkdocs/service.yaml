@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "patchnotes.fullname" . }}-mkdocs
+  labels:
+    {{- include "patchnotes.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mkdocs
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: 8000
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: mkdocs

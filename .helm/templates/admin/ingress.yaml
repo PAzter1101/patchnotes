@@ -1,0 +1,32 @@
+{{- if .Values.admin.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "patchnotes.fullname" . }}-admin
+  labels:
+    {{- include "patchnotes.labels" . | nindent 4 }}
+    app.kubernetes.io/component: admin
+  annotations:
+    {{- if .Values.admin.ingress.tls }}
+    cert-manager.io/cluster-issuer: {{ .Values.admin.ingress.clusterIssuer }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.admin.ingress.ingressClassName }}
+  {{- if .Values.admin.ingress.tls }}
+  tls:
+    - hosts:
+        - {{ .Values.admin.ingress.host }}
+      secretName: {{ include "patchnotes.fullname" . }}-admin-tls
+  {{- end }}
+  rules:
+    - host: {{ .Values.admin.ingress.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "patchnotes.fullname" . }}-admin
+                port:
+                  number: 8501
+{{- end }}

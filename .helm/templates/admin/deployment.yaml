@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "patchnotes.fullname" . }}-admin
+  labels:
+    {{- include "patchnotes.labels" . | nindent 4 }}
+    app.kubernetes.io/component: admin
+spec:
+  replicas: {{ .Values.admin.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: admin
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: admin
+    spec:
+      containers:
+        - name: admin
+          image: "{{ .Values.admin.image.repository }}:{{ .Values.admin.image.tag }}"
+          imagePullPolicy: {{ .Values.admin.image.pullPolicy }}
+          ports:
+            - containerPort: 8501
+          envFrom:
+            - secretRef:
+                name: {{ include "patchnotes.fullname" . }}-secrets
+          resources:
+            {{- toYaml .Values.admin.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          livenessProbe:
+            httpGet:
+              path: /_stcore/health
+              port: 8501
+            initialDelaySeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /_stcore/health
+              port: 8501
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "patchnotes.fullname" . }}-data

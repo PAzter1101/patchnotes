@@ -43,13 +43,16 @@ def _matches_any(path: str, patterns: list[str]) -> bool:
     return False
 
 
-def _get_priority(path: str, config: AppConfig) -> int | None:
+def _get_priority(path: str, config: AppConfig, repo: RepoConfig) -> int | None:
     """None означает noise — файл нужно пропустить."""
-    if _matches_any(path, config.noise_patterns):
+    noise = config.noise_patterns + repo.noise_patterns
+    priority = config.priority_patterns + repo.priority_patterns
+    secondary = config.secondary_patterns + repo.secondary_patterns
+    if _matches_any(path, noise):
         return None
-    if _matches_any(path, config.priority_patterns):
+    if _matches_any(path, priority):
         return 0
-    if _matches_any(path, config.secondary_patterns):
+    if _matches_any(path, secondary):
         return 1
     return 2
 
@@ -94,7 +97,7 @@ def _clone_repo(repo: RepoConfig, token: str, target_dir: str) -> None:
 
 
 def _parse_file_change(
-    line: str, diff_base: str, cwd: str, config: AppConfig
+    line: str, diff_base: str, cwd: str, config: AppConfig, repo: RepoConfig
 ) -> FileChange | None:
     parts = line.split("\t")
     if len(parts) != 3:
@@ -106,7 +109,7 @@ def _parse_file_change(
     except ValueError:
         return None  # бинарный файл
 
-    priority = _get_priority(path, config)
+    priority = _get_priority(path, config, repo)
     if priority is None:
         return None  # noise
 
@@ -256,7 +259,7 @@ def collect_repo_diff(repo: RepoConfig, config: AppConfig) -> RepoDiff:
         numstat = _run_git(["diff", "--numstat", diff_base], tmpdir)
         files: list[FileChange] = []
         for line in numstat.splitlines():
-            change = _parse_file_change(line, diff_base, tmpdir, config)
+            change = _parse_file_change(line, diff_base, tmpdir, config, repo)
             if change is not None:
                 files.append(change)
 
