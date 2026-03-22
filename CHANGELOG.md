@@ -1,3 +1,25 @@
+# [1.3.0](https://github.com/PAzter1101/patchnotes/compare/v1.2.1...v1.3.0) (2026-03-22)
+
+
+### Features
+
+* add admin panel, mkdocs blog, and helm chart ([277d3a5](https://github.com/PAzter1101/patchnotes/commit/277d3a5f342f401ccf4381e987764e626e42acd3))
+
+## Docker Images
+
+- **GitHub Container Registry**: `ghcr.io/pazter1101/patchnotes:1.3.0`
+- **Docker Hub**: `pazter1101/patchnotes:1.3.0`
+
+### Usage
+```bash
+docker run --rm \
+  -e LLM_API_KEY=your-api-key \
+  -v ./config.yml:/config.yml \
+  -v ./prompts:/prompts \
+  -v ./output:/output \
+  ghcr.io/pazter1101/patchnotes:1.3.0
+```
+
 # [1.2.0](https://github.com/PAzter1101/patchnotes/compare/v1.1.0...v1.2.0) (2026-03-22)
 
 
