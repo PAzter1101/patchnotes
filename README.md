@@ -11,57 +11,97 @@ git репозитории → git diff → фильтрация шума → а
 
 1. Клонирует каждый репозиторий параллельно и собирает `git diff` за настроенный период
 2. Фильтрует шум: lock-файлы, миграции, автогенерированный код
-3. Приоритизирует файлы по паттернам из конфига; большие файлы суммаризирует отдельно
+3. Приоритизирует файлы по паттернам из конфига (глобальные + per-repo); большие файлы суммаризирует отдельно
 4. Анализирует каждый репозиторий технически (LLM)
 5. Синтезирует связанные изменения из разных репозиториев в логические цепочки
 6. Генерирует пост в нужном стиле — задаётся через промпт и настройки в конфиге
 7. Ревьювер проверяет пост и при необходимости отправляет на доработку (до `max_review_iterations` раз)
-8. Записывает `.md` файл, готовый для блога [MkDocs Material](https://squidfunk.github.io/mkdocs-material/)
+8. Публикует `.md` файл в блог MkDocs Material
+
+## Компоненты
+
+```
+┌──────────────────────────────────────────┐
+│            Shared PVC (данные)            │
+│  config.yml   output/   posts/           │
+└──────────────────────────────────────────┘
+         │                       │
+┌────────┴──────────┐   ┌───────┴──────┐
+│  Admin (Streamlit)│   │  MkDocs      │
+│                   │   │  (Material)  │
+│  Веб-интерфейс    │   │              │
+│  Планировщик      │   │  Блог + RSS  │
+│  Генератор        │   │              │
+└───────────────────┘   └──────────────┘
+```
+
+| Компонент | Образ | Описание |
+|---|---|---|
+| **Admin** | `patchnotes-admin` | Streamlit-панель: генерация, редактирование постов/конфига, расписание, логи |
+| **MkDocs** | `patchnotes-mkdocs` | Блог на MkDocs Material с RSS |
 
 ## Структура
 
 ```
 patchnotes/
-├── app/
-│   ├── main.py              # точка входа
-│   ├── config.py            # загрузка конфигурации
-│   ├── git_diff.py          # клонирование и анализ diff
-│   ├── llm.py               # запросы к LLM
-│   └── post_builder.py      # генерация .md файла
-├── prompts/
-│   ├── analyze_repo.txt     # анализ одного репозитория
-│   ├── summarize_file.txt   # суммаризация большого файла
-│   ├── synthesize.txt       # синтез фич из нескольких репозиториев
-│   ├── generate_post.txt    # генерация поста
-│   └── review_post.txt      # ревью и gate-проверка поста
-├── config.example.yml       # пример конфигурации
-├── Dockerfile
-└── requirements.txt
+├── app/                    # генератор постов
+│   ├── main.py             # точка входа
+│   ├── config.py           # загрузка конфигурации
+│   ├── git_diff.py         # клонирование и анализ diff
+│   ├── llm.py              # запросы к LLM
+│   └── post_builder.py     # генерация .md файла
+├── admin/                  # веб-интерфейс (Streamlit)
+│   ├── admin_app.py        # точка входа
+│   ├── scheduler.py        # APScheduler планировщик
+│   ├── Dockerfile
+│   └── pages/              # страницы UI
+├── mkdocs/                 # блог
+│   ├── mkdocs.yml          # конфигурация MkDocs
+│   ├── Dockerfile
+│   └── docs/               # контент
+├── .helm/                  # Helm chart
+│   ├── Chart.yaml
+│   ├── values.yaml
+│   └── templates/
+├── prompts/                # промпты для LLM
+└── config.example.yml      # пример конфигурации
 ```
 
 ## Быстрый старт
 
-1. Скопируйте и заполните конфиг:
+### Деплой в Kubernetes (Helm)
 
 ```bash
-cp config.example.yml config.yml
+helm install patchnotes oci://ghcr.io/pazter1101/charts/patchnotes \
+  --set secrets.llmApiKey=sk-or-v1-... \
+  --set secrets.gitToken=glpat-... \
+  --set admin.ingress.enabled=true \
+  --set admin.ingress.host=admin.patchnotes.example.com \
+  --set mkdocs.ingress.enabled=true \
+  --set mkdocs.ingress.host=patchnotes.example.com
 ```
 
-2. Запуск локально (Python):
+Или с файлом значений:
+
+```bash
+helm install patchnotes oci://ghcr.io/pazter1101/charts/patchnotes -f values-prod.yaml
+```
+
+### Запуск локально (Python)
 
 ```bash
 pip install -r requirements.txt
 CONFIG_PATH=config.yml OUTPUT_DIR=output PROMPTS_DIR=prompts python app/main.py
 ```
 
-3. Запуск через Docker:
+### Запуск через Docker
 
 ```bash
 docker run --rm \
-  -v ./config.yml:/config.yml:ro \
-  -v ./prompts:/prompts:ro \
-  -v ./output:/output \
-  ghcr.io/pazter1101/patchnotes
+  -v ./config.yml:/data/config.yml:ro \
+  -v ./prompts:/app/prompts:ro \
+  -v ./output:/data/output \
+  ghcr.io/pazter1101/patchnotes-admin
 ```
 
 Результат появится в `output/{дата}/`.
@@ -76,7 +116,7 @@ docker run --rm \
 llm_api_key: sk-or-v1-...
 llm_base_url: https://openrouter.ai/api/v1
 
-timezone: Europe/Moscow         # часовой пояс для даты в имени файла и front matter
+timezone: Europe/Moscow         # часовой пояс для даты в имени файла
 period_days: 7                  # период анализа в днях
 max_review_iterations: 3        # сколько раз пробовать переписать пост
 
@@ -85,13 +125,19 @@ repos:
     name: backend
     branch: main
     token: ghp-xxx              # токен для приватного репозитория
-    diff_mode: period           # "period" — по дням (по умолчанию) | "tag" — по тегам
+    diff_mode: period           # "period" — по дням | "tag" — по тегам
+    noise_patterns:             # дополнительные исключения (к глобальным)
+      - "__pycache__/"
+      - "*.pyc"
 
   - url: https://github.com/your-org/mobile.git
     name: mobile
     branch: main
-    diff_mode: tag              # анализировать изменения между тегами
+    diff_mode: tag
     tag_lookback_periods: 3     # глубина поиска базового тега (в периодах)
+    noise_patterns:
+      - "*.g.dart"
+      - "*.freezed.dart"
 
 llm:
   analysis:
@@ -113,6 +159,16 @@ post:
 ```
 
 Через `llm_base_url` можно подключить любой OpenAI-совместимый провайдер: [OpenRouter](https://openrouter.ai), [Ollama](https://ollama.com), Together AI, Groq и другие.
+
+### Фильтры файлов
+
+Паттерны фильтрации задаются на двух уровнях — глобально и per-repo. Паттерны репозитория **добавляются** к глобальным:
+
+| Уровень | Описание |
+|---|---|
+| `noise_patterns` | Полностью игнорируются (lock-файлы, сборки, кэши) |
+| `priority_patterns` | Попадают в diff первыми (`app/**`, `lib/**`, `src/**`) |
+| `secondary_patterns` | Попадают последними, если остался бюджет (тесты, конфиги) |
 
 ### Режимы diff
 
@@ -139,9 +195,9 @@ Env переменные перекрывают значения из `config.ym
 | `LLM_API_KEY` | API ключ LLM провайдера |
 | `LLM_BASE_URL` | Base URL OpenAI-совместимого API |
 | `GIT_TOKEN` | Глобальный токен для репозиториев (если не указан per-repo) |
-| `CONFIG_PATH` | Путь к файлу конфигурации (дефолт: `/config.yml`) |
-| `OUTPUT_DIR` | Куда записывать результаты (дефолт: `/output`) |
-| `PROMPTS_DIR` | Путь к директории с промптами (дефолт: `/prompts`) |
+| `CONFIG_PATH` | Путь к файлу конфигурации (дефолт: `/data/config.yml`) |
+| `OUTPUT_DIR` | Куда записывать результаты (дефолт: `/data/output`) |
+| `PROMPTS_DIR` | Путь к директории с промптами (дефолт: `/app/prompts`) |
 | `LOG_LEVEL` | Уровень логирования: `DEBUG`, `INFO`, `WARNING` (дефолт: `INFO`) |
 
 ### Токены для приватных репозиториев
@@ -163,7 +219,44 @@ repos:
 | GitLab | Personal / Project Access Token | `read_repository` |
 | Bitbucket | Repository Access Token | `Repositories: Read` |
 
-### Промпты
+## Helm chart
+
+### Установка
+
+```bash
+helm install patchnotes oci://ghcr.io/pazter1101/charts/patchnotes \
+  --set secrets.llmApiKey=sk-or-v1-... \
+  --set secrets.gitToken=glpat-...
+```
+
+### Основные параметры values.yaml
+
+| Параметр | Описание | По умолчанию |
+|---|---|---|
+| `admin.ingress.enabled` | Включить Ingress для админки | `false` |
+| `admin.ingress.host` | Домен админки | `admin.patchnotes.example.com` |
+| `mkdocs.ingress.enabled` | Включить Ingress для блога | `false` |
+| `mkdocs.ingress.host` | Домен блога | `patchnotes.example.com` |
+| `storage.size` | Размер PVC | `1Gi` |
+| `storage.storageClassName` | StorageClass (пусто = default) | `""` |
+| `storage.accessMode` | Режим доступа PVC | `ReadWriteMany` |
+| `secrets.llmApiKey` | API ключ LLM | `""` |
+| `secrets.gitToken` | Глобальный git-токен | `""` |
+| `admin.auth.username` | Логин для basic auth админки | `admin` |
+| `admin.auth.password` | Пароль для basic auth (пусто = без защиты) | `""` |
+
+### Веб-интерфейс (Admin)
+
+Streamlit-панель управления доступна по адресу Ingress `admin.ingress.host`:
+
+- **Генерация** — ручной запуск генерации постов
+- **Посты** — просмотр, редактирование и публикация постов
+- **Генератор** — редактирование `config.yml`
+- **Блог** — редактирование `mkdocs.yml` (название сайта, тема, плагины)
+- **Расписание** — настройка автоматической генерации (cron)
+- **Логи** — просмотр логов генерации
+
+## Промпты
 
 Промпты в `prompts/` можно изменять без пересборки образа. Доступные переменные:
 
@@ -181,25 +274,10 @@ repos:
 
 | Файл | Содержимое |
 |---|---|
-| `2026-03-18.md` | Готовый пост для MkDocs |
+| `{дата}.md` | Готовый пост для MkDocs |
 | `2_synthesis.txt` | Синтезированные фич-цепочки |
 | `3_post_raw.txt` | Сырой ответ LLM до парсинга |
 | `1_{repo}_analysis.txt` | Технический анализ каждого репозитория |
-
-Формат `.md` совместим с [MkDocs Material Blog](https://squidfunk.github.io/mkdocs-material/plugins/blog/).
-
-## Настройка MkDocs
-
-```yaml
-plugins:
-  - blog
-  - rss:
-      match_path: blog/posts/.*
-```
-
-```bash
-pip install mkdocs-material mkdocs-rss-plugin
-```
 
 ## Модели
 
@@ -212,7 +290,7 @@ pip install mkdocs-material mkdocs-rss-plugin
 
 ## Кастомизация стиля
 
-Стиль и тон поста полностью определяются промптами. Отредактируйте `prompts/generate_post.txt` под свой проект — технический блог, продуктовый changelog, новостная рассылка или любой другой формат. Промпты монтируются в контейнер и не требуют пересборки образа.
+Стиль и тон поста полностью определяются промптами. Отредактируйте `prompts/generate_post.txt` под свой проект — технический блог, продуктовый changelog, новостная рассылка или любой другой формат.
 
 ## Лицензия
 

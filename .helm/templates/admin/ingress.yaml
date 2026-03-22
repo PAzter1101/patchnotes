@@ -10,6 +10,11 @@ metadata:
     {{- if .Values.admin.ingress.tls }}
     cert-manager.io/cluster-issuer: {{ .Values.admin.ingress.clusterIssuer }}
     {{- end }}
+    {{- if .Values.admin.auth.password }}
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: {{ include "patchnotes.fullname" . }}-admin-auth
+    nginx.ingress.kubernetes.io/auth-realm: "Patchnotes Admin"
+    {{- end }}
 spec:
   ingressClassName: {{ .Values.admin.ingress.ingressClassName }}
   {{- if .Values.admin.ingress.tls }}

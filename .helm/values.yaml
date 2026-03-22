@@ -17,6 +17,9 @@ admin:
     tls: true
     clusterIssuer: letsencrypt-prod
     ingressClassName: nginx
+  auth:
+    username: admin
+    password: ""  # обязательно задать при деплое
 
 mkdocs:
   image:
