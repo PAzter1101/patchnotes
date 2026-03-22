@@ -43,9 +43,7 @@ def _matches_any(path: str, patterns: list[str]) -> bool:
     return False
 
 
-def _get_priority(
-    path: str, config: AppConfig, repo: RepoConfig
-) -> int | None:
+def _get_priority(path: str, config: AppConfig, repo: RepoConfig) -> int | None:
     """None означает noise — файл нужно пропустить."""
     noise = config.noise_patterns + repo.noise_patterns
     priority = config.priority_patterns + repo.priority_patterns

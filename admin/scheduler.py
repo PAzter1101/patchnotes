@@ -100,7 +100,7 @@ def _restore_schedule() -> None:
 
 
 def set_schedule(cron_expr: str) -> None:
-    """Устанавливает расписание. Формат: '0 10 * * 1' (минута час день месяц день_недели)."""
+    """Устанавливает расписание. Формат cron: '0 10 * * 1'."""
     sched = get_scheduler()
 
     if sched.get_job("generation"):

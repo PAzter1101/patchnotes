@@ -14,10 +14,14 @@ st.set_page_config(
 get_scheduler()
 
 pages = {
-    "Генерация": [st.Page("pages/generation.py", title="Генерация", icon=":material/play_circle:")],
+    "Генерация": [
+        st.Page("pages/generation.py", title="Генерация", icon=":material/play_circle:")
+    ],
     "Контент": [
         st.Page("pages/posts.py", title="Посты", icon=":material/article:"),
-        st.Page("pages/config_editor.py", title="Генератор", icon=":material/settings:"),
+        st.Page(
+            "pages/config_editor.py", title="Генератор", icon=":material/settings:"
+        ),
         st.Page("pages/mkdocs_editor.py", title="Блог", icon=":material/web:"),
     ],
     "Система": [

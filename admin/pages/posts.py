@@ -1,7 +1,6 @@
 """Страница управления постами."""
 
 import shutil
-from pathlib import Path
 
 import streamlit as st
 
@@ -31,7 +30,9 @@ if not md_file.exists():
 
 content = md_file.read_text(encoding="utf-8")
 
-tab_preview, tab_edit, tab_files = st.tabs(["Превью", "Редактирование", "Файлы запуска"])
+tab_preview, tab_edit, tab_files = st.tabs(
+    ["Превью", "Редактирование", "Файлы запуска"]
+)
 
 with tab_preview:
     parts = content.split("---", 2)
