@@ -19,9 +19,8 @@ pages = {
     ],
     "Контент": [
         st.Page("pages/posts.py", title="Посты", icon=":material/article:"),
-        st.Page(
-            "pages/config_editor.py", title="Генератор", icon=":material/settings:"
-        ),
+        st.Page("pages/settings.py", title="Настройки", icon=":material/tune:"),
+        st.Page("pages/config_editor.py", title="Конфиг YAML", icon=":material/code:"),
         st.Page("pages/mkdocs_editor.py", title="Блог", icon=":material/web:"),
     ],
     "Система": [

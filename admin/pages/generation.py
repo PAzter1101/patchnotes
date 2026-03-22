@@ -1,10 +1,14 @@
 """Страница ручного запуска генерации."""
 
-from pathlib import Path
-
 import streamlit as st
 
-from scheduler import DATA_DIR, get_next_run, get_state, run_now
+from scheduler import (
+    DATA_DIR,
+    get_next_run,
+    get_state,
+    publish_latest_post,
+    start_generation,
+)
 
 OUTPUT_DIR = DATA_DIR / "output"
 
@@ -34,14 +38,22 @@ with col2:
 st.divider()
 
 if st.button("Запустить генерацию", type="primary", use_container_width=True):
-    with st.spinner("Генерация... это может занять несколько минут"):
-        log_path = run_now()
-        log_content = Path(log_path).read_text(encoding="utf-8")
+    process, log_path = start_generation()
 
-    if "Post written to" in log_content:
-        st.success("Пост сгенерирован и опубликован!")
-    else:
-        st.error("Генерация завершилась с ошибкой")
+    with st.status("Генерация...", expanded=True) as status:
+        log_area = st.empty()
+        lines: list[str] = []
 
-    with st.expander("Логи", expanded=True):
-        st.code(log_content, language="log")
+        assert process.stdout is not None
+        for line in process.stdout:
+            lines.append(line)
+            log_area.code("".join(lines), language="log")
+
+        process.wait()
+        log_path.write_text("".join(lines), encoding="utf-8")
+
+        if process.returncode == 0:
+            publish_latest_post()
+            status.update(label="Пост сгенерирован!", state="complete")
+        else:
+            status.update(label="Ошибка генерации", state="error")
