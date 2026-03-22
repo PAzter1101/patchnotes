@@ -4,6 +4,7 @@ import json
 import logging
 import shutil
 import subprocess
+import time
 from datetime import datetime
 from pathlib import Path
 from threading import Lock
@@ -20,10 +21,33 @@ DATA_DIR = Path("/data")
 STATE_FILE = DATA_DIR / "scheduler.json"
 LOGS_DIR = DATA_DIR / "logs"
 GENERATOR_DIR = Path("/app/generator")
+CONFIG_PATH = DATA_DIR / "config.yml"
+DEFAULT_LOG_RETENTION_DAYS = 30
+
+
+def _cleanup_old_logs() -> None:
+    """Удаляет логи старше log_retention_days, если очистка включена."""
+    if not LOGS_DIR.exists():
+        return
+    try:
+        import yaml
+
+        data = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return
+    if not data.get("log_cleanup_enabled", False):
+        return
+    days = int(data.get("log_retention_days", DEFAULT_LOG_RETENTION_DAYS))
+    cutoff = time.time() - days * 86400
+    for log_file in LOGS_DIR.glob("*.log"):
+        if log_file.stat().st_mtime < cutoff:
+            log_file.unlink()
+            logger.debug("Удалён старый лог: %s", log_file.name)
 
 
 def _run_generation() -> None:
     """Запускает генератор как subprocess и публикует результат."""
+    _cleanup_old_logs()
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     log_file = LOGS_DIR / f"{timestamp}.log"
@@ -45,10 +69,10 @@ def _run_generation() -> None:
         return
 
     logger.info("Генерация завершена успешно")
-    _publish_latest_post()
+    publish_latest_post()
 
 
-def _publish_latest_post() -> None:
+def publish_latest_post() -> None:
     """Копирует последний сгенерированный пост в директорию MkDocs."""
     output_dir = DATA_DIR / "output"
     posts_dir = DATA_DIR / "posts"
@@ -130,11 +154,14 @@ def remove_schedule() -> None:
     _save_state("", enabled=False)
 
 
-def get_state() -> dict:
+def get_state() -> dict[str, object]:
     """Возвращает текущее состояние планировщика."""
     if STATE_FILE.exists():
         try:
-            return json.loads(STATE_FILE.read_text(encoding="utf-8"))
+            result: dict[str, object] = json.loads(
+                STATE_FILE.read_text(encoding="utf-8")
+            )
+            return result
         except Exception:
             pass
     return {"cron": "", "enabled": False}
@@ -145,28 +172,22 @@ def get_next_run() -> datetime | None:
     sched = get_scheduler()
     job = sched.get_job("generation")
     if job and job.next_run_time:
-        return job.next_run_time
+        return datetime.fromtimestamp(job.next_run_time.timestamp())
     return None
 
 
-def run_now() -> str:
-    """Запускает генерацию немедленно. Возвращает путь к лог-файлу."""
+def start_generation() -> tuple[subprocess.Popen, Path]:
+    """Запускает генерацию, возвращает (процесс, путь к логу)."""
+    _cleanup_old_logs()
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     log_file = LOGS_DIR / f"{timestamp}.log"
 
-    result = subprocess.run(
-        ["python", "main.py"],
+    process = subprocess.Popen(
+        ["python", "-u", "main.py"],
         cwd=str(GENERATOR_DIR),
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
         text=True,
-        timeout=600,
     )
-
-    log_content = f"=== STDOUT ===\n{result.stdout}\n\n=== STDERR ===\n{result.stderr}"
-    log_file.write_text(log_content, encoding="utf-8")
-
-    if result.returncode == 0:
-        _publish_latest_post()
-
-    return str(log_file)
+    return process, log_file

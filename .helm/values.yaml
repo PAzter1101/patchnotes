@@ -44,7 +44,7 @@ mkdocs:
 storage:
   size: 1Gi
   storageClassName: ""
-  accessMode: ReadWriteMany
+  accessMode: ReadWriteOnce
 
 secrets:
   llmApiKey: ""
