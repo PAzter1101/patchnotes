@@ -1,3 +1,26 @@
+# [1.4.0](https://github.com/PAzter1101/patchnotes/compare/v1.3.0...v1.4.0) (2026-03-22)
+
+
+### Features
+
+* **admin:** add settings page and improve generation workflow ([d16b475](https://github.com/PAzter1101/patchnotes/commit/d16b475615f8c0e82057db6c5ef77d4c49133276))
+* **helm:** add init containers and security context for deployments ([a60e744](https://github.com/PAzter1101/patchnotes/commit/a60e74412751898fbd270c7f5c1acb8341d09e8b))
+
+## Docker Images
+
+- **GitHub Container Registry**: `ghcr.io/pazter1101/patchnotes:1.4.0`
+- **Docker Hub**: `pazter1101/patchnotes:1.4.0`
+
+### Usage
+```bash
+docker run --rm \
+  -e LLM_API_KEY=your-api-key \
+  -v ./config.yml:/config.yml \
+  -v ./prompts:/prompts \
+  -v ./output:/output \
+  ghcr.io/pazter1101/patchnotes:1.4.0
+```
+
 # [1.3.0](https://github.com/PAzter1101/patchnotes/compare/v1.2.1...v1.3.0) (2026-03-22)
 
 
