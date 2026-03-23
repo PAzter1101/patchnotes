@@ -61,6 +61,7 @@ class LLMConfig(BaseModel):
 
 class PostConfig(BaseModel):
     site_name: str = "My Project"
+    site_description: str = ""
     language: str = "en"
 
 

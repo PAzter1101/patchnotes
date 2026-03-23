@@ -5,7 +5,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app/generator \
     CONFIG_PATH=/data/config.yml \
     OUTPUT_DIR=/data/output \
-    PROMPTS_DIR=/app/prompts
+    PROMPTS_DIR=/data/prompts
 
 RUN apt-get update && apt-get install -y --no-install-recommends git \
     && rm -rf /var/lib/apt/lists/* \
@@ -30,4 +30,5 @@ EXPOSE 8501
 CMD ["streamlit", "run", "admin/admin_app.py", \
      "--server.port=8501", \
      "--server.address=0.0.0.0", \
-     "--server.headless=true"]
+     "--server.headless=true", \
+     "--client.toolbarMode=minimal"]
