@@ -28,10 +28,10 @@ st.caption(
 def _read_prompt(filename: str) -> str:
     pvc_path = PROMPTS_DIR / filename
     if pvc_path.exists():
-        return pvc_path.read_text(encoding="utf-8")
+        return str(pvc_path.read_text(encoding="utf-8"))
     default_path = DEFAULT_PROMPTS_DIR / filename
     if default_path.exists():
-        return default_path.read_text(encoding="utf-8")
+        return str(default_path.read_text(encoding="utf-8"))
     return ""
 
 
@@ -58,8 +58,9 @@ for tab, (filename, label) in zip(tabs, PROMPT_FILES.items()):
             if st.button("Сбросить к дефолту", key=f"reset_{filename}"):
                 default = DEFAULT_PROMPTS_DIR / filename
                 if default.exists():
-                    _save_prompt(filename, default.read_text(encoding="utf-8"))
-                    st.success("Сброшено к значению по умолчанию!")
+                    content = default.read_text(encoding="utf-8")
+                    _save_prompt(filename, content)
+                    st.session_state[f"prompt_{filename}"] = content
                     st.rerun()
                 else:
                     st.warning("Дефолтный промпт не найден")

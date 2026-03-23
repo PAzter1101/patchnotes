@@ -38,27 +38,27 @@ with tab_preview:
     parts = content.split("---", 2)
     st.markdown(parts[2] if len(parts) >= 3 else content)
 
+    published = POSTS_DIR / md_file.name
+    is_published = published.exists()
+    if st.button(
+        "Опубликовано" if is_published else "Опубликовать",
+        disabled=is_published,
+        type="primary",
+    ):
+        POSTS_DIR.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(md_file, published)
+        st.success("Пост опубликован в блог!")
+        st.rerun()
+
 with tab_edit:
     edited = st.text_area("Редактировать пост", value=content, height=400)
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("Сохранить"):
-            md_file.write_text(edited, encoding="utf-8")
-            st.success("Сохранено!")
-    with col2:
-        published = POSTS_DIR / md_file.name
-        is_published = published.exists()
-        if st.button(
-            "Опубликовано" if is_published else "Опубликовать",
-            disabled=is_published,
-        ):
-            POSTS_DIR.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(md_file, published)
-            st.success("Пост опубликован в блог!")
-            st.rerun()
+    if st.button("Сохранить"):
+        md_file.write_text(edited, encoding="utf-8")
+        st.success("Сохранено!")
 
 with tab_files:
     for f in sorted(run_dir.iterdir()):
+        if f.suffix == ".md":
+            continue
         with st.expander(f.name):
-            lang = "markdown" if f.suffix == ".md" else "text"
-            st.code(f.read_text(encoding="utf-8"), language=lang)
+            st.code(f.read_text(encoding="utf-8"), language="text")

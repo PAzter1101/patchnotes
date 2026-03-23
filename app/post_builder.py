@@ -69,9 +69,10 @@ def write_post(content: str, config: AppConfig) -> Path:
 
     title, body = _parse_title_and_body(content)
 
+    safe_title = title.replace('"', '\\"')
     front_matter_lines = [f"date: {today}"]
     if title:
-        front_matter_lines.append(f"title: {title}")
+        front_matter_lines.append(f'title: "{safe_title}"')
 
     front_matter = "---\n" + "\n".join(front_matter_lines) + "\n---\n\n"
 

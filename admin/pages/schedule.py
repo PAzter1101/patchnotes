@@ -24,6 +24,13 @@ cron_input = st.text_input(
     placeholder="0 10 * * 1",
 )
 
+auto_publish = st.checkbox(
+    "Автопубликация после генерации",
+    value=state.get("auto_publish", False),
+    help="Если включено — пост сразу публикуется в блог. "
+    "Иначе — нужно опубликовать вручную на странице Посты",
+)
+
 col1, col2 = st.columns(2)
 
 with col1:
@@ -32,7 +39,7 @@ with col1:
             st.error("Введите cron-выражение")
         else:
             try:
-                set_schedule(cron_input.strip())
+                set_schedule(cron_input.strip(), auto_publish)
                 st.success(f"Расписание установлено: `{cron_input}`")
                 st.rerun()
             except ValueError as e:

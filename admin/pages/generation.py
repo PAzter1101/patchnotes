@@ -2,13 +2,7 @@
 
 import streamlit as st
 
-from scheduler import (
-    DATA_DIR,
-    get_next_run,
-    get_state,
-    publish_latest_post,
-    start_generation,
-)
+from scheduler import DATA_DIR, get_next_run, get_state, start_generation
 
 OUTPUT_DIR = DATA_DIR / "output"
 
@@ -53,7 +47,9 @@ if st.button("Запустить генерацию", type="primary", use_contai
         log_path.write_text("".join(lines), encoding="utf-8")
 
         if process.returncode == 0:
-            publish_latest_post()
-            status.update(label="Пост сгенерирован!", state="complete")
+            status.update(
+                label="Пост сгенерирован! Опубликуйте его на странице Посты",
+                state="complete",
+            )
         else:
             status.update(label="Ошибка генерации", state="error")
