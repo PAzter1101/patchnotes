@@ -1,3 +1,25 @@
+# [1.6.0](https://github.com/PAzter1101/patchnotes/compare/v1.5.1...v1.6.0) (2026-03-23)
+
+
+### Features
+
+* **admin:** add auto-publish toggle and improve post workflow ([ec7f1b9](https://github.com/PAzter1101/patchnotes/commit/ec7f1b9ebb75cbb7c8cdf7ce03328964fcddd744))
+
+## Docker Images
+
+- **GitHub Container Registry**: `ghcr.io/pazter1101/patchnotes:1.6.0`
+- **Docker Hub**: `pazter1101/patchnotes:1.6.0`
+
+### Usage
+```bash
+docker run --rm \
+  -e LLM_API_KEY=your-api-key \
+  -v ./config.yml:/config.yml \
+  -v ./prompts:/prompts \
+  -v ./output:/output \
+  ghcr.io/pazter1101/patchnotes:1.6.0
+```
+
 ## [1.5.1](https://github.com/PAzter1101/patchnotes/compare/v1.5.0...v1.5.1) (2026-03-23)
 
 
