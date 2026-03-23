@@ -1,3 +1,25 @@
+## [1.5.1](https://github.com/PAzter1101/patchnotes/compare/v1.5.0...v1.5.1) (2026-03-23)
+
+
+### Bug Fixes
+
+* readme ([00295b8](https://github.com/PAzter1101/patchnotes/commit/00295b8dbb293ef8501ff90f3b180ede37c88b23))
+
+## Docker Images
+
+- **GitHub Container Registry**: `ghcr.io/pazter1101/patchnotes:1.5.1`
+- **Docker Hub**: `pazter1101/patchnotes:1.5.1`
+
+### Usage
+```bash
+docker run --rm \
+  -e LLM_API_KEY=your-api-key \
+  -v ./config.yml:/config.yml \
+  -v ./prompts:/prompts \
+  -v ./output:/output \
+  ghcr.io/pazter1101/patchnotes:1.5.1
+```
+
 # [1.5.0](https://github.com/PAzter1101/patchnotes/compare/v1.4.0...v1.5.0) (2026-03-23)
 
 
