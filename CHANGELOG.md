@@ -1,3 +1,25 @@
+# [1.5.0](https://github.com/PAzter1101/patchnotes/compare/v1.4.0...v1.5.0) (2026-03-23)
+
+
+### Features
+
+* **admin:** reorganize navigation and add prompts/repos management ([a6b4ede](https://github.com/PAzter1101/patchnotes/commit/a6b4ede8b8fdc92fc04bf05f0ab9ada4ed04fa44))
+
+## Docker Images
+
+- **GitHub Container Registry**: `ghcr.io/pazter1101/patchnotes:1.5.0`
+- **Docker Hub**: `pazter1101/patchnotes:1.5.0`
+
+### Usage
+```bash
+docker run --rm \
+  -e LLM_API_KEY=your-api-key \
+  -v ./config.yml:/config.yml \
+  -v ./prompts:/prompts \
+  -v ./output:/output \
+  ghcr.io/pazter1101/patchnotes:1.5.0
+```
+
 # [1.4.0](https://github.com/PAzter1101/patchnotes/compare/v1.3.0...v1.4.0) (2026-03-22)
 
 
