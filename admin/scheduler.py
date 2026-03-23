@@ -69,7 +69,11 @@ def _run_generation() -> None:
         return
 
     logger.info("Генерация завершена успешно")
-    publish_latest_post()
+    state = get_state()
+    if state.get("auto_publish", False):
+        publish_latest_post()
+    else:
+        logger.info("Автопубликация отключена, пост не опубликован")
 
 
 def publish_latest_post() -> None:
@@ -104,10 +108,16 @@ def get_scheduler() -> BackgroundScheduler:
     return _scheduler
 
 
-def _save_state(cron_expr: str, enabled: bool) -> None:
+def _save_state(cron_expr: str, enabled: bool, auto_publish: bool = False) -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     STATE_FILE.write_text(
-        json.dumps({"cron": cron_expr, "enabled": enabled}),
+        json.dumps(
+            {
+                "cron": cron_expr,
+                "enabled": enabled,
+                "auto_publish": auto_publish,
+            }
+        ),
         encoding="utf-8",
     )
 
@@ -123,7 +133,7 @@ def _restore_schedule() -> None:
         logger.exception("Не удалось восстановить расписание")
 
 
-def set_schedule(cron_expr: str) -> None:
+def set_schedule(cron_expr: str, auto_publish: bool = False) -> None:
     """Устанавливает расписание. Формат cron: '0 10 * * 1'."""
     sched = get_scheduler()
 
