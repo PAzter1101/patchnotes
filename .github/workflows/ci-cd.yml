@@ -120,11 +120,12 @@ jobs:
     - name: Log in to GHCR
       run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
 
-    - name: Update chart version
+    - name: Update chart version and image tags
       run: |
         VERSION=${{ needs.semantic-release.outputs.version }}
         sed -i "s/^version:.*/version: ${VERSION}/" .helm/Chart.yaml
         sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" .helm/Chart.yaml
+        sed -i "s/    tag: latest/    tag: ${VERSION}/" .helm/values.yaml
 
     - name: Package and push
       run: |
