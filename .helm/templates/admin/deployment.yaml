@@ -27,8 +27,9 @@ spec:
             - sh
             - -c
             - |
-              mkdir -p /data/output /data/logs /data/posts
+              mkdir -p /data/output /data/logs /data/posts /data/prompts
               test -f /data/mkdocs.yml || cp /app/mkdocs-default.yml /data/mkdocs.yml
+              cp -n /app/prompts/*.txt /data/prompts/ 2>/dev/null || true
           volumeMounts:
             - name: data
               mountPath: /data

@@ -1,0 +1,52 @@
+services:
+  init:
+    build:
+      context: .
+      dockerfile: admin/Dockerfile
+    entrypoint: sh
+    command:
+      - -c
+      - |
+        mkdir -p /data/output /data/logs /data/posts /data/prompts
+        test -f /data/mkdocs.yml || cp /app/mkdocs-default.yml /data/mkdocs.yml
+        cp -n /app/prompts/*.txt /data/prompts/ 2>/dev/null || true
+    volumes:
+      - data:/data
+
+  admin:
+    build:
+      context: .
+      dockerfile: admin/Dockerfile
+    ports:
+      - "8501:8501"
+    volumes:
+      - data:/data
+    environment:
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - GIT_TOKEN=${GIT_TOKEN:-}
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  mkdocs:
+    build:
+      context: mkdocs
+    ports:
+      - "8000:8000"
+    entrypoint: sh
+    command:
+      - -c
+      - |
+        ln -sf /data/mkdocs.yml /docs/mkdocs.yml
+        ln -sf /data/posts /docs/docs/blog/posts
+        exec mkdocs serve --dev-addr=0.0.0.0:8000
+    volumes:
+      - data:/data:ro
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  data:
