@@ -1,5 +1,5 @@
-streamlit==1.59.2
+streamlit==1.60.0
 apscheduler==3.11.3
-openai==2.46.0
+openai==2.48.0
 pydantic==2.13.4
 PyYAML==6.0.3
