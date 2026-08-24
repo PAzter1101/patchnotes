@@ -1,4 +1,4 @@
-streamlit==1.61.1
+streamlit==1.62.0
 apscheduler==3.11.3
 openai==2.53.0
 pydantic==2.13.4
