@@ -19,7 +19,7 @@ jobs:
       pull-requests: write
     steps:
     - name: Checkout
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         fetch-depth: 0
         token: ${{ secrets.GITHUB_TOKEN }}
@@ -65,7 +65,7 @@ jobs:
             context: mkdocs
     steps:
     - name: Checkout
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
@@ -115,7 +115,7 @@ jobs:
       packages: write
     steps:
     - name: Checkout
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
 
     - name: Log in to GHCR
       run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
@@ -142,7 +142,7 @@ jobs:
       pull-requests: write
     steps:
     - name: Checkout
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         fetch-depth: 0
         token: ${{ secrets.PAT_TOKEN }}
